@@ -1,208 +1,111 @@
-import sys, os
-import numpy as np
-import torch
-from torch import nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
+import os
+import sys
 import time
-from time import perf_counter
-import pickle
-from model.config import load_config
-from model.genconvit_ed import GenConViTED
-from model.genconvit_vae import GenConViTVAE
-from dataset.loader import load_data, load_checkpoint
-import optparse
+import torch
+import torch.nn
+import argparse
+from PIL import Image
+from tensorboardX import SummaryWriter
+import numpy as np
+from validate import validate
+from data import create_dataloader
+from networks.trainer import Trainer
+from options.train_options import TrainOptions
+from options.test_options import TestOptions
+from util import Logger
 
-config = load_config()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def load_pretrained(pretrained_model_filename):
-    assert os.path.isfile(
-        pretrained_model_filename
-    ), "Saved model file does not exist. Exiting."
-
-    model, optimizer, start_epoch, min_loss = load_checkpoint(
-        model, optimizer, filename=pretrained_model_filename
-    )
-    # now individually transfer the optimizer parts...
-    for state in optimizer.state.values():
-        for k, v in state.items():
-            if isinstance(v, torch.Tensor):
-                state[k] = v.to(device)
-    return model, optimizer, start_epoch, min_loss
+# import random
+# def seed_torch(seed=1029):
+    # random.seed(seed)
+    # os.environ['PYTHONHASHSEED'] = str(seed)
+    # np.random.seed(seed)
+    # torch.manual_seed(seed)
+    # torch.cuda.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
+    # torch.backends.cudnn.benchmark = False
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.enabled = False
 
 
-def train_model(
-    dir_path, mod, num_epochs, pretrained_model_filename, test_model, batch_size
-):
-    print("Loading data...")
-    dataloaders, dataset_sizes = load_data(dir_path, batch_size)
-    print("Done.")
-
-    if mod == "ed":
-        from train.train_ed import train, valid
-        model = GenConViTED(config)
-    else:
-        from train.train_vae import train, valid
-        model = GenConViTVAE(config)
-
-    optimizer = optim.Adam(
-        model.parameters(),
-        lr=float(config["learning_rate"]),
-        weight_decay=float(config["weight_decay"]),
-    )
-    criterion = nn.CrossEntropyLoss()
-    criterion.to(device)
-    mse = nn.MSELoss()
-    min_val_loss = int(config["min_val_loss"])
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
-
-    if pretrained_model_filename:
-        model, optimizer, start_epoch, min_loss = load_pretrained(
-            pretrained_model_filename
-        )
-
-    model.to(device)
-    torch.manual_seed(1)
-    train_loss, train_acc, valid_loss, valid_acc = [], [], [], []
-    since = time.time()
-
-    for epoch in range(0, num_epochs):
-        train_loss, train_acc, epoch_loss = train(
-            model,
-            device,
-            dataloaders["train"],
-            criterion,
-            optimizer,
-            epoch,
-            train_loss,
-            train_acc,
-            mse,
-        )
-        valid_loss, valid_acc = valid(
-            model,
-            device,
-            dataloaders["validation"],
-            criterion,
-            epoch,
-            valid_loss,
-            valid_acc,
-            mse,
-        )
-        scheduler.step()
-
-    time_elapsed = time.time() - since
-
-    print(
-        "Training complete in {:.0f}m {:.0f}s".format(
-            time_elapsed // 60, time_elapsed % 60
-        )
-    )
-
-    print("\nSaving model...\n")
-
-    file_path = os.path.join(
-        "weight",
-        f'genconvit_{mod}_{time.strftime("%b_%d_%Y_%H_%M_%S", time.localtime())}',
-    )
-
-    with open(f"{file_path}.pkl", "wb") as f:
-        pickle.dump([train_loss, train_acc, valid_loss, valid_acc], f)
-
-    state = {
-        "epoch": num_epochs + 1,
-        "state_dict": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "min_loss": epoch_loss,
-    }
-
-    weight = f"{file_path}.pth"
-    torch.save(state, weight)
-
-    print("Done.")
-
-    if test_model:
-        test(model, dataloaders, dataset_sizes, mod, weight)
+# test config
+vals = ['progan', 'stylegan', 'stylegan2', 'biggan', 'cyclegan', 'stargan', 'gaugan', 'deepfake']
+multiclass = [1, 1, 1, 0, 1, 0, 0, 0]
 
 
-def test(model, dataloaders, dataset_sizes, mod, weight):
-    print("\nRunning test...\n")
-    model.eval()
-    checkpoint = torch.load(weight, map_location="cpu")
-    model.load_state_dict(checkpoint["state_dict"])
-    _ = model.eval()
+def get_val_opt():
+    val_opt = TrainOptions().parse(print_options=False)
+    val_opt.dataroot = '{}/{}/'.format(val_opt.dataroot, val_opt.val_split)
+    val_opt.isTrain = False
+    val_opt.no_resize = False
+    val_opt.no_crop = False
+    val_opt.serial_batches = True
 
-    Sum = 0
-    counter = 0
-    for inputs, labels in dataloaders["test"]:
-        inputs = inputs.to(device)
-        labels = labels.to(device)
-        if mod == "ed":
-            output = model(inputs).to(device).float()
-        else:
-            output = model(inputs)[0].to(device).float()
-
-        _, prediction = torch.max(output, 1)
-
-        pred_label = labels[prediction]
-        pred_label = pred_label.detach().cpu().numpy()
-        main_label = labels.detach().cpu().numpy()
-        bool_list = list(map(lambda x, y: x == y, pred_label, main_label))
-        Sum += sum(np.array(bool_list) * 1)
-        counter += 1
-        print(f"Pediction: {Sum}/{len(inputs)*counter}")
-
-    print(
-        f'Prediction: {Sum}/{dataset_sizes["test"]} {(Sum / dataset_sizes["test"]) * 100:.2f}%'
-    )
+    return val_opt
 
 
-def gen_parser():
-    parser = optparse.OptionParser("Train GenConViT model.")
-    parser.add_option(
-        "-e",
-        "--epoch",
-        type=int,
-        dest="epoch",
-        help="Number of epochs used for training the GenConvNextViT model.",
-    )
-    parser.add_option("-v", "--version", dest="version", help="Version 0.1.")
-    parser.add_option("-d", "--dir", dest="dir", help="Training data path.")
-    parser.add_option(
-        "-m",
-        "--model",
-        dest="model",
-        help="model ed or model vae, model variant: genconvit (A) ed or genconvit (B) vae.",
-    )
-    parser.add_option(
-        "-p",
-        "--pretrained",
-        dest="pretrained",
-        help="Saved model file name. If you want to continue from the previous trained model.",
-    )
-    parser.add_option("-t", "--test", dest="test", help="run test on test dataset.")
-    parser.add_option("-b", "--batch_size", dest="batch_size", help="batch size.")
+if __name__ == '__main__':
+    opt = TrainOptions().parse()
+    # seed_torch(100)
+    Testdataroot = os.path.join(opt.dataroot, 'test')
+    opt.dataroot = '{}/{}/'.format(opt.dataroot, opt.train_split)
+    Logger(os.path.join(opt.checkpoints_dir, opt.name, 'log.log'))
+    print('  '.join(list(sys.argv)) )
+    val_opt = get_val_opt()
+    Testopt = TestOptions().parse(print_options=False)
+    data_loader = create_dataloader(opt)
 
-    (options, _) = parser.parse_args()
+    train_writer = SummaryWriter(os.path.join(opt.checkpoints_dir, opt.name, "train"))
+    val_writer = SummaryWriter(os.path.join(opt.checkpoints_dir, opt.name, "val"))
+    
+    model = Trainer(opt)
+    
+    def testmodel():
+        print('*'*25);accs = [];aps = []
+        print(time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()))
+        for v_id, val in enumerate(vals):
+            Testopt.dataroot = '{}/{}'.format(Testdataroot, val)
+            Testopt.classes = os.listdir(Testopt.dataroot) if multiclass[v_id] else ['']
+            Testopt.no_resize = False
+            Testopt.no_crop = True
+            acc, ap, _, _, _, _ = validate(model.model, Testopt)
+            accs.append(acc);aps.append(ap)
+            print("({} {:10}) acc: {:.1f}; ap: {:.1f}".format(v_id, val, acc*100, ap*100))
+        print("({} {:10}) acc: {:.1f}; ap: {:.1f}".format(v_id+1,'Mean', np.array(accs).mean()*100, np.array(aps).mean()*100));print('*'*25) 
+        print(time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()))
+    # model.eval();testmodel();
+    model.train()
+    print(f'cwd: {os.getcwd()}')
+    for epoch in range(opt.niter):
+        epoch_start_time = time.time()
+        iter_data_time = time.time()
+        epoch_iter = 0
 
-    dir_path = options.dir
-    epoch = options.epoch
-    mod = "ed" if options.model == "ed" else "vae"
-    test_model = "y" if options.test else None
-    pretrained_model_filename = options.pretrained if options.pretrained else None
-    batch_size = options.batch_size if options.batch_size else config["batch_size"]
+        for i, data in enumerate(data_loader):
+            model.total_steps += 1
+            epoch_iter += opt.batch_size
 
-    return dir_path, mod, epoch, pretrained_model_filename, test_model, int(batch_size)
+            model.set_input(data)
+            model.optimize_parameters()
 
+            if model.total_steps % opt.loss_freq == 0:
+                print(time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()), "Train loss: {} at step: {} lr {}".format(model.loss, model.total_steps, model.lr))
+                train_writer.add_scalar('loss', model.loss, model.total_steps)
 
-def main():
-    start_time = perf_counter()
-    path, mod, epoch, pretrained_model_filename, test_model, batch_size = gen_parser()
-    train_model(path, mod, epoch, pretrained_model_filename, test_model, batch_size)
-    end_time = perf_counter()
-    print("\n\n--- %s seconds ---" % (end_time - start_time))
+        if epoch % opt.delr_freq == 0 and epoch != 0:
+            print(time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime()), 'changing lr at the end of epoch %d, iters %d' %
+                  (epoch, model.total_steps))
+            model.adjust_learning_rate()
+            
 
+        # Validation
+        model.eval()
+        acc, ap = validate(model.model, val_opt)[:2]
+        val_writer.add_scalar('accuracy', acc, model.total_steps)
+        val_writer.add_scalar('ap', ap, model.total_steps)
+        print("(Val @ epoch {}) acc: {}; ap: {}".format(epoch, acc, ap))
+        # testmodel()
+        model.train()
 
-if __name__ == "__main__":
-    main()
+    model.eval();testmodel()
+    model.save_networks('last')
+    

@@ -1,5 +1,8 @@
-opencv-python
-face-recognition==1.3.0
-albumentations==1.3.0
-decord==0.6.0
-timm==0.6.5
+scipy
+scikit-learn
+numpy
+opencv_python
+Pillow
+torch>=1.2.0
+torchvision
+gdown==4.7.1 
