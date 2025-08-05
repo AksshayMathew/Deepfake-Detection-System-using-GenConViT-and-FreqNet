@@ -1,8 +1,32 @@
-scipy
-scikit-learn
-numpy
-opencv_python
-Pillow
-torch>=1.2.0
-torchvision
-gdown==4.7.1 
+# Core backend
+flask==3.0.3
+flask-cors==4.0.0
+
+# Deep learning frameworks
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+
+# Hugging Face ViT support
+transformers==4.40.0
+datasets==2.19.0
+
+# Image and video processing
+opencv-python==4.10.0.82
+Pillow==10.3.0
+scikit-image==0.22.0
+
+# FFT and scientific computing
+numpy==1.26.4
+scipy==1.13.1
+
+# Misc utilities
+tqdm==4.66.4
+matplotlib==3.9.0
+python-dotenv==1.0.1
+
+# Optional: if using subprocess for model execution
+subprocess32; platform_system != "Windows"
+
+# Optional: if future Grad-CAM/visualization support needed
+# grad-cam==1.5.2
