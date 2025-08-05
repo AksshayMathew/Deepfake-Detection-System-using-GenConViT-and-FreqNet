@@ -1,11 +1,11 @@
 
-# 🧠 Deepfake Detection Using GenConViT and FreqNet with Ensemble-Based Web Inference
+# Deepfake Detection Using GenConViT and FreqNet with Ensemble-Based Web Inference
 
 > Ensemble-based deepfake detection system powered by GenConViT, FreqNet, and Vision Transformer. Includes a web-based inference interface using Flask for real-time image/video verification.
 
 ---
 
-## 📸 Project Overview
+## Project Overview
 
 The system integrates:
 - **GenConViT Autoencoder + VAE** (Generative Convolutional Vision Transformer)
@@ -18,36 +18,36 @@ It combines **spatial**, **frequency**, and **latent representation** learning t
 
 ## 🖼️ System Architecture
 
-### 📊 Fig. 1 – Architecture Diagram
+### Fig. 1 – Architecture Diagram
 ![Architecture Diagram](assets/fig1_architecture.png)
 
 ---
 
-## 🌐 DetectApp Web Interface
+## DetectApp Web Interface
 
 DetectApp is a Flask-based frontend allowing users to upload images or videos and view authenticity predictions.
 
-### 🧭 Fig. 2 – Landing Page with Carousel and Features
+### Fig. 2 – Landing Page with Carousel and Features
 ![Landing Page](assets/fig2_landing.png)
 
-### 📤 Fig. 3 – Upload and About Section
+### Fig. 3 – Upload and About Section
 ![Upload Interface](assets/fig3_upload_about.png)
 
-### 🎯 Fig. 4 – Result Page with Prediction Outcome
+### Fig. 4 – Result Page with Prediction Outcome
 ![Prediction Result](assets/fig4_result.png)
 
-### 🧮 Fig. 5 – Individual Model Predictions
+### Fig. 5 – Individual Model Predictions
 ![Model Predictions](assets/fig5_model_predictions.png)
 
 ---
 
-## 🚀 Features
+## Features
 
-- ✅ Multi-model inference (GenConViT, FreqNet, ViT)
-- 🖼️ Image and Video support (`.jpg`, `.png`, `.mp4`, `.avi`)
-- ⚡ Fast frame-level detection
-- 🔐 Secure file handling
-- 📱 Mobile-responsive web interface
+- Multi-model inference (GenConViT, FreqNet, ViT)
+- Image and Video support (`.jpg`, `.png`, `.mp4`, `.avi`)
+- Fast frame-level detection
+- Secure file handling
+- Mobile-responsive web interface
 
 ---
 
@@ -82,39 +82,13 @@ After installing the dependencies and activating the virtual environment:
 python app.py
 ```
 
-The app will be available at: [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
 
 ---
 
-## 📂 Folder Structure
+## Dataset Used
 
-```
-.
-├── app.py
-├── models/
-│   ├── genconvit_ae.pth
-│   ├── genconvit_vae.pth
-│   └── freqnet.pth
-├── static/uploads/
-├── templates/
-│   ├── index.html
-│   ├── upload.html
-│   └── result.html
-├── assets/
-│   ├── fig1_architecture.png
-│   ├── fig2_landing.png
-│   ├── fig3_upload_about.png
-│   ├── fig4_result.png
-│   └── fig5_model_predictions.png
-├── requirements.txt
-└── README.md
-```
-
----
-
-## 📊 Dataset Used
-
-### 🔊 Deepfake-TIMIT (Video-Based)
+### Deepfake-TIMIT (Video-Based)
 
 - **Total Videos**: 10,240  
   - 320 real  
@@ -125,7 +99,7 @@ The app will be available at: [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
 ---
 
-## ✨ Results and Evaluation
+## Results and Evaluation
 
 | Model       | Dataset Scope            | Accuracy     |
 |-------------|---------------------------|--------------|
@@ -135,10 +109,10 @@ The app will be available at: [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
 ---
 
-## 🧠 Model Inference Summary
+## Model Inference Summary
 
-| Model           | Input Type | Method             | Output      |
-|------------------|------------|--------------------|-------------|
+| Model            | Input Type  | Method             | Output      |
+|------------------|------------ |--------------------|-------------|
 | GenConViT-AE     | Image/Video | Reconstruction     | Real/Fake   |
 | GenConViT-VAE    | Image/Video | Latent Analysis    | Real/Fake   |
 | FreqNet          | Image/Video | FFT-based Learning | Real/Fake   |
@@ -147,31 +121,6 @@ The app will be available at: [http://127.0.0.1:5000](http://127.0.0.1:5000)
 ### Ensemble Voting
 - Majority voting across 4 models.
 - Confidence is averaged from all model outputs.
-
----
-
-## 🔮 Future Enhancements
-
-- ⏱ Replace subprocess-based inference with native PyTorch pipeline
-- 🎥 Extend ViT to process video frames
-- 🎞 Add 3D-CNN or temporal transformer for sequence consistency
-- 🧠 Use Grad-CAM / saliency maps for interpretability
-
----
-
-## 📄 License
-
-This project is open-source and licensed under the MIT License.
-
----
-
-## 👨‍💻 Authors
-
-- Prince Raj  
-- Sumit Dohan  
-- Jatin Mudiraj  
-- Aksshay Mathew P  
-_CSE, IIT Ropar_
 
 ---
 
